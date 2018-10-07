@@ -20,5 +20,7 @@ clean:
 	-rm manpac
 
 load:
+	cp -f ./ghost /tmp/
+	cp -f ./manpac /tmp/
 	-rmmod $(modname)
 	insmod $(modname).ko
