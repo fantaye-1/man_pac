@@ -1,6 +1,9 @@
 # Binaries
 ghost
-pacman
+manpac
+
+# Makefile cache
+.cache.mk
 
 # Prerequisites
 *.d
