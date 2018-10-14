@@ -12,7 +12,6 @@
 // Module headers
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/init.h>
 
 // Process list headers
 #include <linux/sched.h> // task_struct definition
@@ -22,12 +21,6 @@
 // System call headers
 #include <linux/kallsyms.h> // kallsysms_lookup_name
 #include <linux/linkage.h>
-
-#include <asm/unistd.h>
-
-#ifndef __KERNEL__
-#define __KERNEL__
-#endif
 
 // Don't do tail call optimizations, it breaks ftrace recursion handling
 #pragma GCC optimize("-fno-optimize-sibling-calls")
@@ -41,6 +34,7 @@ static asmlinkage long
 		const char __user *const __user *argv,
 		const char __user *const __user *envp);
 
+// ftrace options (includes handler)
 static struct ftrace_ops execve_ops;
 
 /* Exec System Call Wrapper */
