@@ -6,7 +6,7 @@ KDIR := /lib/modules/$(KVERSION)/build
 PWD := "$$(pwd)"
 
 ifdef DEBUG
-	CFLAGS_$(obj-m)
+	CFLAGS_$(obj-m) := -DDEBUG
 endif
 
 default:
