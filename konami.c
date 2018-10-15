@@ -22,8 +22,20 @@
 #include <linux/kallsyms.h> // kallsysms_lookup_name
 #include <linux/linkage.h>
 
+// Key combo headers
+#include <linux/interrupt.h> // IRQ for keyboard intercept
+#include <linux/workqueue.h>
+
 // Don't do tail call optimizations, it breaks ftrace recursion handling
 #pragma GCC optimize("-fno-optimize-sibling-calls")
+
+/* Data types */
+
+// Wrapper for work containing scancode
+struct kb_work {
+	struct work_struct work; // work
+	unsigned char scancode; // key scancode
+};
 
 /* Globals */
 
@@ -36,6 +48,11 @@ static asmlinkage long
 
 // ftrace options (includes handler)
 static struct ftrace_ops execve_ops;
+
+// work queue for key combo detection
+static struct workqueue_struct *wq_keyboard;
+
+static unsigned char kb_pos; // position in combo sequence
 
 /* Exec System Call Wrapper */
 
@@ -64,7 +81,9 @@ ftrace_handler(unsigned long ip, unsigned long parent_ip,
 	// is within this module before re-assigning the instruction pointer to our
 	// wrapped implementation.
 	if (within_module(parent_ip, THIS_MODULE))
+	{
 		return;
+	}
 
 	// Use wrapped version
 	regs->ip = (unsigned long)&sys_execve;
@@ -133,20 +152,108 @@ restore_exec(void)
 	}
 }
 
+/* Keyboard Combo Launcher */
+
+// Work queue worker that handles key combo detection.
+static void
+kb_combo_handler(struct work_struct *work)
+{
+	struct kb_work *kb = container_of(work, struct kb_work, work);
+	if ((kb->scancode & 0x80) == 0)
+	{
+		return; // Ignore key press, we only need releases
+	}
+	// Detection is mapped to Up-Up-Down-Down-Left-Right-Left-Right-B-A-Enter
+	// All credit goes to Abraham for the initial implementation!
+	switch (kb->scancode)
+	{
+		case 0xc8: // Released Up Arrow
+			kb_pos = (kb_pos == 0 || kb_pos == 1) ? kb_pos + 1 : 0;
+			pr_debug("Up Arrow: %d\n", kb_pos);
+			break;
+		case 0xcb: // Released Left Arrow
+			kb_pos = (kb_pos == 4 || kb_pos == 6) ? kb_pos + 1 : 0;
+			pr_debug("Left Arrow: %d\n", kb_pos);
+			break;
+		case 0xcd: // Released Right Arrow
+			kb_pos = (kb_pos == 5 || kb_pos == 7) ? kb_pos + 1 : 0;
+			pr_debug("Right Arrow: %d\n", kb_pos);
+			break;
+		case 0xd0: // Released Down Arrow
+			kb_pos = (kb_pos == 2 || kb_pos == 3) ? kb_pos + 1 : 0;
+			pr_debug("Down Arrow: %d\n", kb_pos);
+			break;
+		case 0x9e: // Released A
+			kb_pos = kb_pos == 9 ? kb_pos + 1 : 0;
+			pr_debug("A: %d\n", kb_pos);
+			break;
+		case 0xb0: // Released B
+			kb_pos = kb_pos == 8 ? kb_pos + 1 : 0;
+			pr_debug("B: %d\n", kb_pos);
+			break;
+		case 0x9c: // Released Enter
+			kb_pos = kb_pos == 10 ? kb_pos + 1 : 0;
+			pr_debug("Enter: %d\n", kb_pos);
+			break;
+		case 0xe0: // Ignore auxilary key
+			break;
+		default:
+			kb_pos = 0; // Reset on invalid key
+	}
+
+	if (kb_pos == 11)
+	{
+		pr_debug("Konami Code Entered!\n");
+	}
+}
+
+// Proxies the keyboard IRQ to a work queue. This prevents the handler from
+// blocking the keyboard drivers in critical sections but still allows in-order
+// combo detection.
+irqreturn_t
+kb_irq_handler(int irq, void *arg)
+{
+	struct kb_work *kb;
+
+	kb = kmalloc(sizeof(struct kb_work), GFP_KERNEL);
+	kb->scancode = inb(0x60); // Keyboard scancode is at I/O port 0x60
+
+	INIT_WORK(&kb->work, kb_combo_handler);
+	queue_work(wq_keyboard, &kb->work);
+
+	return IRQ_HANDLED;
+}
+
 /* Module Setup */
 
 // Initialization of module
 int __init
 init_KonamiModule(void)
 {
+	int error;
+
 	pr_debug("Konamo module initialized.\n");
-	return 0;
+	// Create a single-thread work queue to handle keyboard IRQs without blocking
+	wq_keyboard = create_singlethread_workqueue("KonamiKBCombo2018");
+	// Keyboard's IRQ on x86* is 1, using IRQF_SHARED doesn't block other
+	// interrupts. Handle for the request is kb_pos's static pointer.
+	error = request_irq(1, kb_irq_handler, IRQF_SHARED, "KonamiKBIRQ", &kb_pos);
+	if (error)
+	{
+		pr_debug("could not allocate IRQ handler: %d\n", error);
+	}
+	return error;
 }
 
 // Exit of module
 void __exit
 exit_KonamiModule(void)
 {
+	// Process remaining items in keyboard IRQ handler queue and cleanup
+	flush_workqueue(wq_keyboard);
+	destroy_workqueue(wq_keyboard);
+	// Keyboard's IRQ on x86* is 1, free the handle located by kb_pos
+	free_irq(1, &kb_pos);
 	pr_debug("Konami module exited.\n");
 	return;
 }
