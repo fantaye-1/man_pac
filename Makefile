@@ -11,8 +11,8 @@ endif
 
 default:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
-	gcc -o ghost ghost.c
-	gcc -o manpac manpac.c
+	gcc -o ghost ghost.c -lrt -pthread
+	gcc -o manpac manpac.c -lrt -pthread
 
 clean:
 	$(MAKE) O=$(PWD) -C $(KDIR) M=$(PWD) clean
