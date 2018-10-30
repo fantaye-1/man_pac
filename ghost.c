@@ -10,6 +10,7 @@
  */
 
 #include "shared.h"
+#include <sys/ioctl.h>
 
 static ghost_t *ghost;
 
@@ -188,7 +189,24 @@ main(int argc, char** argv)
 		sem_post(&shared->ready);
 	}
 	printf("Ghost %d with PID %d reporting!\n", ghost->order, ghost->pid);
+
+	// Signal to Kernel to add this ghost
+	int proc_fd = open("/proc", O_NONBLOCK);
+	if (proc_fd < 0)
+	{
+		printf("Could not open /proc for ioctl\n");
+	}
+	else
+	{
+		// Add ghost to kernel list
+		ioctl(proc_fd, 0xDEADCAFE, ghost->pid);
+	}
+
 	sleep(5);
+	// Remove ghost from kernel list
+	if (proc_fd >= 0) {
+		ioctl(proc_fd, 0xFEEDFACE, ghost->pid);
+	}
 
 	// Disable ghost
 	sem_wait(&ghost->mutex);
