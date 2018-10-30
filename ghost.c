@@ -11,17 +11,6 @@
 
 #include "shared.h"
 
-// Following defines and typedef describe a set of flags:
-//	from bit 3 to 0: (colliding) top, bot, left, right.
-// Thus, when return value is:
-//	0: valid position, 1: (colliding) right, 2: left, 3: right & left ... so on.
-#define COLLISION_TOP 8
-#define COLLISION_BOT 4
-#define COLLISION_LEFT 2
-#define COLLISION_RIGHT 1
-
-typedef unsigned char collision_side_t;
-
 static ghost_t *ghost;
 
 // Initializes allocated Ghost
@@ -37,7 +26,11 @@ init_ghost(int order)
 
 	ghost->pid = getpid();
 	ghost->order = order;
-	ghost->moveBehavior = order; // Initial movement behavior is determined by the order#
+	ghost->moveDir = 3; // Initialize to move to right direction
+	// Ghosts will initially line up at the upper left screen
+	ghost->pos->x = 5 + order * (ghost->dims->w + 5);
+	ghost->pos->y = 5;
+	
 	sem_post(&ghost->mutex);
 
 	return 0;
@@ -53,76 +46,75 @@ term_handler(int signal)
 	sem_post(&ghost->mutex);
 }
 
-// Checks if which side the ghost is colliding to.
-//	return value of 0 indicates no collision, otherwise collision on some sides.
-collision_side_t
-ghost_collision_check(dims_t *screen, int xTemp, int yTemp)
-{
-	collision_side_t result = 0;
-
-	//FIXME: need collision check with other ghosts
-
-	// Top side check
-	if (yTemp > screen->y)
-		result = result | COLLISION_TOP;
-
-	// Bot side check
-	if (yTemp < 0)
-		result = result | COLLISION_BOT;
-
-	// Left side check
-	if (xTemp < 0)
-		result = result | COLLISION_LEFT;
-
-	// Right side check
-	if (xTemp > screen->x)
-		result = result | COLLISION_RIGHT;
-
-	return result;
-}
-
 // Determines next position of this ghost.
-// Explanation:
-//	Ghost will move in the diagonal directions and deflect perpendicularly on collision.
-//	moveBehavior variable determines which diagonal direction:
-//		0: upper left, 1: upper right, 2: lower left, 3: lower right
-//	moveBehavior variable will change so that ghost will be deflected in
-//		perpendicular way if it collides.
 coord_t
 next_position(ghost_t *ghost, dims_t *screen)
 {
-	collision_side_t collisionCheck = 0;
+	xTemp = ghost->pos->x;
+	yTemp = ghost->pos->y;
 
-	do
+	// Move one pixel toward predefined direction
+	switch (ghost->moveDir)
 	{
-		// Changes moveBehavior variable depending on the colliding side
-		//	If no side is in collision (initial loop), leave it unchanged.
-		if (collisionCheck & COLLISION_TOP)
-			ghost->moveBehavior = ghost->moveBehavior + 2;
-		if (collisionCheck & COLLISION_BOT)
-			ghost->moveBehavior = ghost->moveBehavior - 2;
-		if (collisionCheck & COLLISION_LEFT)
-			ghost->moveBehavior++;
-		if (collisionCheck & COLLISION_RIGHT)
-			ghost->moveBehavior--; 
+		case 0 // Move up
+			yTemp++;
+			break;
+		case 1 // Move down
+			yTemp--;
+			break;
+		case 2 // Move left
+			xTemp--;
+			break;
+		case 3 // Move right
+			xTemp++;
+		default
+	}
 
-		int xTemp = ghost->pos->x;
-		int yTemp = ghost->pos->y;
-
-		// Move ghost in a way decided by moveBehavior variable.
-		if (ghost->moveBehavior % 2 == 0)
-			--xTemp;
-		else
-			++xTemp;
-
-		if (ghost->moveBehavior < 2)
-			++yTemp;
-		else
-			--yTemp;
-		}
-		// Loop executes again when collisionCheck indicates some collision
-		while (collisionCheck = ghost_collision_check(*screen, xTemp, yTemp));
-
+	// Hard coded paths. Ghosts will move clockwise on the
+	//	perimeter line specified in the condition values.
+	switch (ghost->order)
+	{
+		case 0	// Circles around top left
+			if (xTemp < screen->w / 8)	// @ Left boundary: move to top
+				ghost->moveDir = 0;
+			if (xTemp > screen->w * 7 / 8)	// @ Right boundary: move to bottom
+				ghost->moveDir = 1;
+			if (yTemp < screen->h / 3)	// @ Bottom boundary: move to left
+				ghost->moveDir = 2;
+			if (yTemp > screen->h / 8)	// @ Top boundary: move to right
+				ghost->moveDir = 3;
+			break;
+		case 1	// Circles around top right
+			if (xTemp < screen->w * 2 / 3)
+				ghost->moveDir = 0;
+			if (xTemp > screen->w * 7 / 8)
+				ghost->moveDir = 1;
+			if (yTemp < screen->h / 3)
+				ghost->moveDir = 2;
+			if (yTemp > screen->h / 8)
+				ghost->moveDir = 3;
+			break;
+		case 2	// Circles around low middle
+			if (xTemp < screen->w / 3)
+				ghost->moveDir = 0;
+			if (xTemp > screen->w * 2 / 3)
+				ghost->moveDir = 1;
+			if (yTemp < screen->h * / 8)
+				ghost->moveDir = 2;
+			if (yTemp > screen->h * 2 / 3)
+				ghost->moveDir = 3;
+			break;
+		case 3	// Circles around the entire screen
+			if (xTemp < screen->w / 4)
+				ghost->moveDir = 0;
+			if (xTemp > screen->w * 3 / 4)
+				ghost->moveDir = 1;
+			if (yTemp < screen->h / 4)
+				ghost->moveDir = 2;
+			if (yTemp > screen->h * 3 / 4)
+				ghost->moveDir = 3;
+			break;
+	}
 	coord_t new_pos = {.x = xTemp, .y = yTemp};
 	return new_pos;
 }
