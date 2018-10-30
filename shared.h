@@ -28,6 +28,7 @@ typedef struct {
 	coord_t pos; // Pixel-based position
 	dims_t dims; // Pixel-based dimensions
 	int order; // Order of instantiation
+	int moveDir; // Movement direction - 0:up, 1:down, 2:left, 3:right
 
 	sem_t mutex; // Mutual exclusion lock
 } ghost_t;
