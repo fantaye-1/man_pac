@@ -11,7 +11,32 @@
 
 #include "shared.h"
 
+// colors
+#define RED   "\x1B[31m"
+#define GRN   "\x1B[32m"
+#define YEL   "\x1B[33m"
+#define BLU   "\x1B[34m"
+#define RESET "\x1B[0m"
+
 static shared_t *shared;
+//switch colors and print
+void
+assign_color( int c_pid, int switch_color)
+{	
+	if (switch_color == 1)
+	{
+		printf(RED "%d"  RESET "\n", c_pid);
+	}else if (switch_color == 2)
+	{
+		printf(GRN "%d"  RESET "\n", c_pid);
+	}else if (switch_color == 3)
+	{
+		printf(YEL "%d"  RESET "\n", c_pid);
+	}else if (switch_color == 4)
+	{
+		printf(BLU "%d"  RESET "\n", c_pid);
+	} 	
+}
 
 // Spawns four ghosts
 int
@@ -128,7 +153,11 @@ main(int argc, char** argv)
 			ghost = &shared->ghosts[i];
 			if (ghost->pid != 0)
 			{
-				// TODO print ghost info here
+				int pid_Of_ghost = gost->pid;
+				
+				// asign color for gost processes
+				assign_color(pid_Of_ghost,i);				
+				
 				count++;
 			}
 		}
