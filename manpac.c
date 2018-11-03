@@ -19,6 +19,30 @@
 #define RESET "\x1B[0m"
 
 static shared_t *shared;
+
+// Returns a Ghost that is collided with the rect <pos, dims> or NULL if none
+ghost_t*
+collided_ghost(coord_t pos, dims_t dims)
+{
+	ghost_t *ghost = NULL;
+	int i;
+
+	for (i = 0; i < 4; i++)
+	{
+		ghost = &shared->ghosts[i];
+
+		if (pos.x < ghost->pos.x + ghost->dims.w &&
+			pos.y < ghost->pos.y + ghost->dims.h &&
+			pos.x + dims.w > ghost->pos.x &&
+			pos.y + dims.h > ghost->pos.y)
+		{
+			return ghost;
+		}
+	}
+
+	return NULL;
+}
+
 //switch colors and print
 void
 assign_color( int c_pid, int switch_color)
