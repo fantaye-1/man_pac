@@ -12,10 +12,10 @@
 #include "shared.h"
 
 // colors
-#define RED   "\x1B[31m"
-#define GRN   "\x1B[32m"
-#define YEL   "\x1B[33m"
-#define BLU   "\x1B[34m"
+#define RED "\x1B[31m"
+#define GREEN "\x1B[32m"
+#define YELLOW "\x1B[33m"
+#define BLUE "\x1B[34m"
 #define RESET "\x1B[0m"
 
 static shared_t *shared;
@@ -43,23 +43,25 @@ collided_ghost(coord_t pos, dims_t dims)
 	return NULL;
 }
 
-//switch colors and print
+// Switch colors and print
 void
-assign_color( int c_pid, int switch_color)
+assign_color(int pid, int order)
 {	
-	if (switch_color == 1)
+	switch (order)
 	{
-		printf(RED "%d"  RESET "\n", c_pid);
-	}else if (switch_color == 2)
-	{
-		printf(GRN "%d"  RESET "\n", c_pid);
-	}else if (switch_color == 3)
-	{
-		printf(YEL "%d"  RESET "\n", c_pid);
-	}else if (switch_color == 4)
-	{
-		printf(BLU "%d"  RESET "\n", c_pid);
-	} 	
+		case 0:
+			printf(RED "%d" RESET "\n", pid);
+			break;
+		case 1:
+			printf(GREEN "%d" RESET "\n", pid);
+			break;
+		case 2:
+			printf(YELLOW "%d" RESET "\n", pid);
+			break;
+		case 3:
+			printf(BLUE "%d" RESET "\n", pid);
+			break;
+	}
 }
 
 // Spawns four ghosts
@@ -177,11 +179,8 @@ main(int argc, char** argv)
 			ghost = &shared->ghosts[i];
 			if (ghost->pid != 0)
 			{
-				int pid_Of_ghost = gost->pid;
-				
-				// asign color for gost processes
-				assign_color(pid_Of_ghost,i);				
-				
+				assign_color(ghost->pid, ghost->order);
+
 				count++;
 			}
 		}
