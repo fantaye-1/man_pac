@@ -11,7 +11,58 @@
 
 #include "shared.h"
 
+// colors
+#define RED "\x1B[31m"
+#define GREEN "\x1B[32m"
+#define YELLOW "\x1B[33m"
+#define BLUE "\x1B[34m"
+#define RESET "\x1B[0m"
+
 static shared_t *shared;
+
+// Returns a Ghost that is collided with the rect <pos, dims> or NULL if none
+ghost_t*
+collided_ghost(coord_t pos, dims_t dims)
+{
+	ghost_t *ghost = NULL;
+	int i;
+
+	for (i = 0; i < 4; i++)
+	{
+		ghost = &shared->ghosts[i];
+
+		if (pos.x < ghost->pos.x + ghost->dims.w &&
+			pos.y < ghost->pos.y + ghost->dims.h &&
+			pos.x + dims.w > ghost->pos.x &&
+			pos.y + dims.h > ghost->pos.y)
+		{
+			return ghost;
+		}
+	}
+
+	return NULL;
+}
+
+// Switch colors and print
+void
+assign_color(int pid, int order)
+{	
+	switch (order)
+	{
+		case 0:
+			printf(RED "%d" RESET "\n", pid);
+			break;
+		case 1:
+			printf(GREEN "%d" RESET "\n", pid);
+			break;
+		case 2:
+			printf(YELLOW "%d" RESET "\n", pid);
+			break;
+		case 3:
+			printf(BLUE "%d" RESET "\n", pid);
+			break;
+	}
+}
 
 // Spawns four ghosts
 int
@@ -128,7 +179,8 @@ main(int argc, char** argv)
 			ghost = &shared->ghosts[i];
 			if (ghost->pid != 0)
 			{
-				// TODO print ghost info here
+				assign_color(ghost->pid, ghost->order);
+
 				count++;
 			}
 		}
