@@ -6,7 +6,7 @@ KDIR := /lib/modules/$(KVERSION)/build
 PWD := "$$(pwd)"
 
 ifdef DEBUG
-	CFLAGS_$(obj-m) := -DDEBUG
+	CFLAGS_$(obj-m) := -g -DDEBUG
 endif
 
 default:
@@ -16,11 +16,11 @@ default:
 
 clean:
 	$(MAKE) O=$(PWD) -C $(KDIR) M=$(PWD) clean
-	-rm ghost
-	-rm manpac
+	-rm ghost || true
+	-rm manpac || true
 
 load:
 	cp -f ./ghost /tmp/
 	cp -f ./manpac /tmp/
-	-rmmod $(modname)
+	-rmmod $(modname) || true
 	insmod $(modname).ko
