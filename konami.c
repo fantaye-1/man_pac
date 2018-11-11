@@ -32,6 +32,8 @@
 // Don't do tail call optimizations, it breaks ftrace recursion handling
 #pragma GCC optimize("-fno-optimize-sibling-calls")
 
+#define MANPAC_LOC "/tmp/manpac"
+
 /* Data types */
 
 // Wrapper for work containing scancode
@@ -66,12 +68,16 @@ sys_execve(const char __user *filename,
 		const char __user *const __user *envp)
 {
 	// Replace `man pac` execution calls
-	if (strcmp("/usr/bin/man", filename) == 0 && strcmp("pac", argv[1]) == 0)
+	if (argv != NULL && argv[1] != NULL &&
+			strcmp("/usr/bin/man", filename) == 0 &&
+			strcmp("pac", argv[1]) == 0)
 	{
-		return original_sys_execve("/tmp/manpac", argv, envp);
+		pr_debug("We have man pac!\n");
+		// Override userspace location of /usr/bin/man with MANPAC_LOC
+		copy_to_user((char __user *)filename, MANPAC_LOC, sizeof(MANPAC_LOC));
 	}
 
-	// Not calling `man pac`, pass through to orginal
+	// Pass through to original
 	return original_sys_execve(filename, argv, envp);
 }
 
@@ -103,12 +109,12 @@ install_exec_wrapper(void)
 	unsigned long handler_addr = kallsyms_lookup_name("sys_execve");
 	if (!handler_addr)
 	{
-		pr_debug("could not resolve sys_execve's symbol");
-		return ENOENT;
+		pr_debug("could not resolve sys_execve's symbol\n");
+		return -ENOENT;
 	}
 
 	// Setup pointer to original handler
-	*((unsigned long *)original_sys_execve) = handler_addr;
+	original_sys_execve = (void *) handler_addr;
 
 	// Setup ftrace
 	execve_ops.func = ftrace_handler;
@@ -147,7 +153,7 @@ restore_exec(void)
 		pr_debug("r - unregister_ftrace_function returned error: %d\n", error);
 	}
 
-	handler_addr = (unsigned long)&original_sys_execve;
+	handler_addr = (unsigned long)original_sys_execve;
 	error = ftrace_set_filter_ip(&execve_ops, handler_addr, 1, 0);
 	if (error)
 	{
@@ -413,7 +419,7 @@ init_KonamiModule(void)
 {
 	int error;
 
-	pr_debug("Konamo module initialized.\n");
+	pr_debug("Konami module initialized.\n");
 	// Create a single-thread work queue to handle keyboard IRQs without blocking
 	wq_keyboard = create_singlethread_workqueue("KonamiKBCombo2018");
 	// Keyboard's IRQ on x86* is 1, using IRQF_SHARED doesn't block other
