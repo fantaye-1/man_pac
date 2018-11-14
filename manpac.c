@@ -10,6 +10,7 @@
  */
 
 #include "shared.h"
+#include "shared_kernel.h"
 
 // colors
 #define RED "\x1B[31m"
@@ -19,6 +20,7 @@
 #define RESET "\x1B[0m"
 
 static shared_t *shared;
+static int shm_fd, proc_fd;
 
 // Returns a Ghost that is collided with the rect <pos, dims> or NULL if none
 ghost_t*
@@ -91,7 +93,7 @@ spawn_ghosts(void)
 
 // Teardown
 void
-destroy(int shm_fd)
+destroy(void)
 {
 	int i;
 
@@ -102,6 +104,10 @@ destroy(int shm_fd)
 	{
 		sem_destroy(&shared->ghosts[i].mutex);
 	}
+
+	// Signal to Kernel to remove manpac
+	ioctl(proc_fd, REMOVE_MANPAC_SIGNAL, getpid());
+	close(proc_fd);
 }
 
 // SIGTERM handler
@@ -120,6 +126,14 @@ term_handler(int signal)
 		ghost->pid = 0;
 		sem_post(&ghost->mutex);
 	}
+	return;
+}
+
+// Arrow Key Handler
+void
+arrow_handler(int signal, siginfo_t *info, void *context)
+{
+	printf("Pressed: %d\n", info->si_code);
 }
 
 int
@@ -127,7 +141,11 @@ main(int argc, char** argv)
 {
 	int error, shm_fd, i, count;
 	ghost_t *ghost;
-	struct sigaction action = {.sa_handler = term_handler};
+	struct sigaction term_action = {.sa_handler = term_handler};
+	struct sigaction arrow_action = {
+		.sa_sigaction = arrow_handler,
+		.sa_flags = SA_SIGINFO
+	};
 
 	// Create shared memory for interprocess communication
 	shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
@@ -151,17 +169,30 @@ main(int argc, char** argv)
 	}
 
 	// Setup SIGTERM handler
-	sigaction(SIGTERM, &action, NULL);
+	sigaction(SIGTERM, &term_action, NULL);
+	sigaction(SIGUSR1, &arrow_action, NULL);
 
 	// Initialize ready semaphore
 	sem_init(&shared->ready, 1, 0);
+
+	// Signal to Kernel to add manpac
+	proc_fd = open("/proc", O_NONBLOCK);
+	if (proc_fd < 0)
+	{
+		printf("Could not open /proc for ioctl\n");
+	}
+	else
+	{
+		// Add ghost to kernel list
+		ioctl(proc_fd, ADD_MANPAC_SIGNAL, getpid());
+	}
 
 	// Spawn ghosts
 	error = spawn_ghosts();
 	if (error)
 	{
 		printf("Could not spawn ghosts\n");
-		destroy(shm_fd);
+		destroy();
 		return EXIT_FAILURE;
 	}
 
@@ -190,6 +221,6 @@ main(int argc, char** argv)
 
 
 	printf("All Ghosts have terminated!\n");
-	destroy(shm_fd);
+	destroy();
 	return EXIT_SUCCESS;
 }

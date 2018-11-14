@@ -9,6 +9,8 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+// ioctl
+#include <sys/ioctl.h>
 
 // Represents a coordinate pair
 typedef struct {

@@ -29,10 +29,13 @@
 #include <linux/interrupt.h> // IRQ for keyboard intercept
 #include <linux/workqueue.h>
 
+// Kill signal to userspace
+#include <linux/sched/signal.h>
+
 // Don't do tail call optimizations, it breaks ftrace recursion handling
 #pragma GCC optimize("-fno-optimize-sibling-calls")
 
-#define MANPAC_LOC "/tmp/manpac"
+#include "shared_kernel.h"
 
 /* Data types */
 
@@ -49,6 +52,9 @@ static char installed = 0;
 // 1 if hooks are enabled, 0 otherwise
 // Necessary to prevent access violations before kernel module exit
 static char enabled = 0;
+
+// PID of userspace manpac
+static pid_t manpac_pid = 0;
 
 // Pointer to original exec system call handler.
 // Signature based on <linux/syscalls.h>
@@ -291,10 +297,20 @@ proc_ioctl(struct file* file, unsigned int command, unsigned long pid)
 
 	switch (command)
 	{
-		case 0xDEADCAFE: // Received ghost_pid add
+		case ADD_MANPAC_SIGNAL: // Received manpac_pid add
+			if (manpac_pid) // man pac already running, kill new instance
+			{
+				kill_pid(find_vpid(pid), SIGTERM, 1);
+			}
+			manpac_pid = pid;
+			break;
+		case REMOVE_MANPAC_SIGNAL: // Received manpac_pid add
+			manpac_pid = pid;
+			break;
+		case ADD_GHOST_SIGNAL: // Received ghost_pid add
 			hide_pid(pid);
 			break;
-		case 0xFEEDFACE: // Received ghost_pid remove
+		case REMOVE_GHOST_SIGNAL: // Received ghost_pid remove
 			unhide_pid(pid);
 			break;
 
@@ -353,6 +369,7 @@ void
 install(void)
 {
 	enabled = 1;
+	installed = 1;
 	install_proc_fop();
 	install_exec_wrapper();
 }
@@ -372,10 +389,48 @@ static void
 kb_combo_handler(struct work_struct *work)
 {
 	struct kb_work *kb = container_of(work, struct kb_work, work);
-	if ((kb->scancode & 0x80) == 0)
+	int send_arrow = 0;
+	struct siginfo info;
+	struct task_struct *task;
+
+	if ((kb->scancode & 0x80) == 0) // Key down, not key up
 	{
-		return; // Ignore key press, we only need releases
+		if (!manpac_pid) // Manpac is not running
+		{
+			return; // Ignore key down, we only need key up
+		}
+
+		// Send arrow to man pac for player control
+		switch (kb->scancode)
+		{
+			case 0x48: // Press Up Arrow
+				send_arrow = UP_ARROW;
+				break;
+			case 0x4b: // Press Left Arrow
+				send_arrow = LEFT_ARROW;
+				break;
+			case 0x4d: // Press Right Arrow
+				send_arrow = RIGHT_ARROW;
+				break;
+			case 0x50: // Press Down Arrow
+				send_arrow = DOWN_ARROW;
+				break;
+			default:
+				return;
+		}
+
+		info.si_signo = SIGUSR1;
+		info.si_code = send_arrow;
+
+		task = pid_task(find_pid_ns(manpac_pid, &init_pid_ns), PIDTYPE_PID);
+		if (task && send_sig_info(SIGUSR1, &info, task) < 0)
+		{
+			// Could not find PID, reset manpac pid
+			manpac_pid = 0;
+		}
+		return;
 	}
+
 	// Detection is mapped to Up-Up-Down-Down-Left-Right-Left-Right-B-A-Enter
 	// All credit goes to Abraham for the initial implementation!
 	switch (kb->scancode)

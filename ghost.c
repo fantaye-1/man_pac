@@ -10,7 +10,7 @@
  */
 
 #include "shared.h"
-#include <sys/ioctl.h>
+#include "shared_kernel.h"
 
 static ghost_t *ghost;
 
@@ -199,13 +199,13 @@ main(int argc, char** argv)
 	else
 	{
 		// Add ghost to kernel list
-		ioctl(proc_fd, 0xDEADCAFE, ghost->pid);
+		ioctl(proc_fd, ADD_GHOST_SIGNAL, ghost->pid);
 	}
 
 	sleep(5);
 	// Remove ghost from kernel list
 	if (proc_fd >= 0) {
-		ioctl(proc_fd, 0xFEEDFACE, ghost->pid);
+		ioctl(proc_fd, REMOVE_GHOST_SIGNAL, ghost->pid);
 	}
 
 	// Disable ghost
@@ -214,5 +214,6 @@ main(int argc, char** argv)
 	sem_post(&ghost->mutex);
 	printf("Ghost %d leaving!\n", ghost->order);
 
+	close(proc_fd);
 	return EXIT_SUCCESS;
 }
