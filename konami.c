@@ -465,6 +465,7 @@ kb_combo_handler(struct work_struct *work)
 			pr_debug("Enter: %d\n", kb_pos);
 			break;
 		case 0xe0: // Ignore auxilary key
+		case 0xaa:
 			break;
 		default:
 			kb_pos = 0; // Reset on invalid key
