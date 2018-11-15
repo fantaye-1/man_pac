@@ -12,11 +12,6 @@
 #include "shared.h"
 #include "shared_kernel.h"
 
-#define DIR_UP 0
-#define DIR_DOWN 1
-#define DIR_LEFT 2
-#define DIR_RIGHT 3
-
 static int proc_fd = -1;
 static ghost_t *ghost;
 
