@@ -12,11 +12,11 @@
 #include "shared.h"
 #include "shared_kernel.h"
 
-// colors
+// ANSI Colors
 #define RED "\x1B[31m"
 #define GREEN "\x1B[32m"
-#define YELLOW "\x1B[33m"
 #define BLUE "\x1B[34m"
+#define PURPLE "\x1B[35m"
 #define RESET "\x1B[0m"
 
 static shared_t *shared;
@@ -24,7 +24,7 @@ static int shm_fd, proc_fd;
 
 // Returns a Ghost that is collided with the rect <pos, dims> or NULL if none
 ghost_t*
-collided_ghost(coord_t pos, dims_t dims)
+collided_ghost(coord_t pos, int dims_w, int dims_h)
 {
 	ghost_t *ghost = NULL;
 	int i;
@@ -33,10 +33,10 @@ collided_ghost(coord_t pos, dims_t dims)
 	{
 		ghost = &shared->ghosts[i];
 
-		if (pos.x < ghost->pos.x + ghost->dims.w &&
-			pos.y < ghost->pos.y + ghost->dims.h &&
-			pos.x + dims.w > ghost->pos.x &&
-			pos.y + dims.h > ghost->pos.y)
+		if (pos.x < ghost->pos.x + ghost_width &&
+			pos.y < ghost->pos.y + ghost_height &&
+			pos.x + dims_w > ghost->pos.x &&
+			pos.y + dims_h > ghost->pos.y)
 		{
 			return ghost;
 		}
@@ -45,22 +45,22 @@ collided_ghost(coord_t pos, dims_t dims)
 	return NULL;
 }
 
-// Switch colors and print
+// Assign a ghost color and print
 void
-assign_color(int pid, int order)
+print_color_ghost(int pid, int order)
 {	
 	switch (order)
 	{
-		case 0:
+		case 0: // Ghost 0 is Red
 			printf(RED "%d" RESET "\n", pid);
 			break;
-		case 1:
+		case 1: // Ghost 1 is Green
 			printf(GREEN "%d" RESET "\n", pid);
 			break;
-		case 2:
-			printf(YELLOW "%d" RESET "\n", pid);
+		case 2: // Ghost 2 is Purple
+			printf(PURPLE "%d" RESET "\n", pid);
 			break;
-		case 3:
+		case 3: // Ghost 3 is Blue
 			printf(BLUE "%d" RESET "\n", pid);
 			break;
 	}
@@ -210,7 +210,7 @@ main(int argc, char** argv)
 			ghost = &shared->ghosts[i];
 			if (ghost->pid != 0)
 			{
-				assign_color(ghost->pid, ghost->order);
+				print_color_ghost(ghost->pid, ghost->order);
 
 				count++;
 			}

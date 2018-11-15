@@ -11,6 +11,13 @@
 #include <sys/stat.h>
 // ioctl
 #include <sys/ioctl.h>
+// X11/GUI
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/extensions/shape.h>
+// Bitmaps
+#include "ghost.xbm"
+#include "manpac.xbm"
 
 // Represents a coordinate pair
 typedef struct {
@@ -18,19 +25,12 @@ typedef struct {
 	int y;
 } coord_t;
 
-// Represents a 2D width and height pair
-typedef struct {
-	int w;
-	int h;
-} dims_t;
-
 // Represents a Ghost process
 typedef struct {
 	pid_t pid; // Process ID
 	coord_t pos; // Pixel-based position
-	dims_t dims; // Pixel-based dimensions
 	int order; // Order of instantiation
-	int moveDir; // Movement direction - 0:up, 1:down, 2:left, 3:right
+	int move_dir; // Movement direction - 0:up, 1:down, 2:left, 3:right
 
 	sem_t mutex; // Mutual exclusion lock
 } ghost_t;
