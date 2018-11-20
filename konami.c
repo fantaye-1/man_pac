@@ -370,9 +370,12 @@ void
 install(void)
 {
 	enabled = 1;
-	installed = 1;
-	install_proc_fop();
-	install_exec_wrapper();
+	if (!installed)
+	{
+		installed = 1;
+		install_proc_fop();
+		install_exec_wrapper();
+	}
 }
 
 void
