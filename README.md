@@ -1,3 +1,5 @@
+![demo](https://user-images.githubusercontent.com/5411/49317121-37648480-f4c1-11e8-9868-0bb42b4f0f6e.gif)
+
 # Manpac LKM Project
 
 This project focuses on a Linux Kernel Module that intercepts specific key interrupts (this is not a keylogger) in order to install system hooks if the Konami Code is entered: `Up-Up-Down-Down-Left-Right-Left-Right-B-A-Enter`.
