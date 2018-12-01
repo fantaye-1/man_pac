@@ -10,7 +10,8 @@ In this game, our hero Manpac will try to catch all the ghosts to get rid of the
 
 ### Prerequisites
 
-*Linux Kernel version:* ~4.15. Other versions have not been tested.
+Linux Kernel version: ~4.15. 
+Other versions have not been tested.
 
 American QWERTY keyboard with arrow keys.
 
@@ -37,6 +38,27 @@ These can be installed with `sudo apt install build-essential linux-headers-$(un
 7. When all the ghosts were caught or ghost processes were killed, system behavior will be reverted into the state prior to entering Konami Code.
     * Entering the Konami Code again will allow you to repeat the game by running `man pac`.
 8. To fully uninstall the kernel module, run `sudo rmmod konami`.
+
+### Important files
+
+`konami.c`
+
+    This kernel module includes all of the kernel-level functionality required
+    for the Manpac game to function correctly.  
+    It is intended to handle the Konami Code key combination, the system call
+    replacement for `man pac` to run the `manpac` program, hide Ghost processes,
+    and facilitate communication about the process status of the game's entities.
+
+`manpac.c`
+
+    manpac.c represents the Manpac player-controlled character in the game.  
+    It is intended to be called in place of `man pac` by the wrapped system call,
+    not run directly.
+
+`ghost.c`
+
+    ghost.c represents a Ghost in the Manpac game.  
+    It is intended to be spawned by manpac, not run directly.
 
 ## Authors
 

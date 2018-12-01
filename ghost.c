@@ -1,5 +1,6 @@
 /*
- * A program -- TODO write what we do here
+ * ghost.c represents a Ghost in the Manpac game.
+ * It is intended to be spawned by manpac, not run directly.
  *
  * Licensed under GPLv3.
  * Copyright (c) 2018 Abrham Fantaye, Chase Colman, Youngsoo Kang.

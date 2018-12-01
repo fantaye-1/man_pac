@@ -1,5 +1,7 @@
 /*
- * A program -- TODO write what we do here
+ * manpac.c represents the Manpac player-controlled character in the game.
+ * It is intended to be called in place of `man pac` by the wrapped system call,
+ * not run directly.
  *
  * Licensed under GPLv3.
  * Copyright (c) 2018 Abrham Fantaye, Chase Colman, Youngsoo Kang.

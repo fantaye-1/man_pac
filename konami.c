@@ -1,5 +1,9 @@
 /*
- * A kernel module -- TODO write what we do here
+ * This kernel module includes all of the kernel-level functionality required
+ * for the Manpac game to function correctly.
+ * It is intended to handle the Konami Code key combination, the system call
+ * replacement for `man pac` to run the `manpac` program, hide Ghost processes,
+ * and facilitate communication about the process status of the game's entities.
  *
  * Licensed under GPLv3.
  * Copyright (c) 2018 Abrham Fantaye, Chase Colman, Youngsoo Kang.
