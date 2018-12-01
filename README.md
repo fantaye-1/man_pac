@@ -22,7 +22,7 @@ The following Ubuntu packages are needed to compile this code:
 * `libx11-dev`
 * `libxext-dev`
 
-These can be installed with `sudo apt install build-essential linux-headers-$(uname-r) libelf-dev libx11-dev linxext-dev`
+These can be installed with `sudo apt install build-essential linux-headers-$(uname -r) libelf-dev libx11-dev libxext-dev`
 
 ### How To Run
 
