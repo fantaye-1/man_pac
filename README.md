@@ -15,11 +15,11 @@ In this game, our hero Manpac will try to catch all the ghosts to get rid of the
 American QWERTY keyboard with arrow keys.
 
 The following Ubuntu packages are needed to compile this code:
-* build-essential
-* linux-headers-$(uname -r)
-* libelf-dev
-* libx11-dev
-* libxext-dev
+* `build-essential`
+* `linux-headers-$(uname -r)`
+* `libelf-dev`
+* `libx11-dev`
+* `libxext-dev`
 
 These can be installed with `sudo apt install build-essential linux-headers-$(uname-r) libelf-dev libx11-dev linxext-dev`
 
@@ -31,11 +31,11 @@ These can be installed with `sudo apt install build-essential linux-headers-$(un
 4. You can track if you successfully entered the code and all other messages using `dmesg --follow`.
 5. After the system hooks are installed, viewing manual pages with `man` will continue to work, but running `man pac` will run the game.
 6. The video game will spawn four ghosts as well as our hero manpac to catch all the ghosts.
-  * If you run `ps -A | grep ghost`, you'll notice that the Ghost color-coded process IDs listed in `man pac`'s terminal window do not show up until they are killed.
-  * Manpac can be controlled using the arrow keys and when it collides with a Ghost process, it will the process.
-  * Ghost processes can be killed directly using `kill` with their corresponding process IDs.
+    * If you run `ps -A | grep ghost`, you'll notice that the Ghost color-coded process IDs listed in `man pac`'s terminal window do not show up until they are killed.
+    * Manpac can be controlled using the arrow keys and when it collides with a Ghost process, it will the process.
+    * Ghost processes can be killed directly using `kill` with their corresponding process IDs.
 7. When all the ghosts were caught or ghost processes were killed, system behavior will be reverted into the state prior to entering Konami Code.
-  * Entering the Konami Code again will allow you to repeat the game by running `man pac`.
+    * Entering the Konami Code again will allow you to repeat the game by running `man pac`.
 8. To fully uninstall the kernel module, run `sudo rmmod konami`.
 
 ## Authors
